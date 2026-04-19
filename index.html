@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinVault — Personal Finance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="light-mode" id="app-body">
+
+<!-- Onboarding Overlay -->
+<div id="onboarding-overlay" class="onboarding-overlay hidden">
+  <div class="onboarding-card">
+    <div class="onboarding-logo">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <rect width="48" height="48" rx="14" fill="var(--accent)"/>
+        <path d="M12 30L20 18L28 24L36 14" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="36" cy="14" r="3" fill="white"/>
+      </svg>
+    </div>
+    <h1 class="onboarding-title">Welcome to <span>FinVault</span></h1>
+    <p class="onboarding-sub">Your personal finance command centre. Let's start with your name.</p>
+    <div class="onboarding-input-wrap">
+      <input type="text" id="user-name-input" placeholder="Enter your name" maxlength="40" autocomplete="off"/>
+      <button id="start-btn" onclick="initUser()">Get Started →</button>
+    </div>
+    <p class="onboarding-note">All data stays on your device. No servers, no accounts.</p>
+  </div>
+</div>
+
+<!-- App Shell -->
+<div id="app-shell" class="app-shell hidden">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sidebar collapsed">
+    <div class="sidebar-header">
+      <button class="hamburger" id="sidebar-toggle" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="sidebar-brand">
+        <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="14" fill="var(--accent)"/>
+          <path d="M12 30L20 18L28 24L36 14" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="36" cy="14" r="3" fill="white"/>
+        </svg>
+        <span class="brand-name">FinVault</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" onclick="navigate('dashboard')" data-module="dashboard">
+        <span class="nav-icon">⬡</span>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('investments')" data-module="investments">
+        <span class="nav-icon">📈</span>
+        <span class="nav-label">Investments</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('insurance')" data-module="insurance">
+        <span class="nav-icon">🛡</span>
+        <span class="nav-label">Insurance</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('liabilities')" data-module="liabilities">
+        <span class="nav-icon">📉</span>
+        <span class="nav-label">Liabilities</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('accounts')" data-module="accounts">
+        <span class="nav-icon">🏦</span>
+        <span class="nav-label">Accounts</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('expenses')" data-module="expenses">
+        <span class="nav-icon">💸</span>
+        <span class="nav-label">Expenses</span>
+      </a>
+      <a href="#" class="nav-item" onclick="navigate('sip')" data-module="sip">
+        <span class="nav-icon">🔄</span>
+        <span class="nav-label">SIP Manager</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="theme-toggle-wrap">
+        <span class="theme-icon">☀️</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="theme-toggle" onchange="toggleTheme()"/>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="theme-icon">🌙</span>
+      </div>
+      <div class="sidebar-user" id="sidebar-user-name"></div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main-content" id="main-content">
+    <!-- Pages injected here -->
+  </main>
+
+</div>
+
+<!-- Global Modal -->
+<div id="global-modal" class="modal-overlay hidden" onclick="closeModalOnBg(event)">
+  <div class="modal-box" id="modal-box">
+    <div class="modal-header">
+      <h3 id="modal-title">Modal</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast-container"></div>
+
+<!-- ─── Scripts: app.js MUST be first (defines DB, helpers, boot) ─── -->
+<script src="app.js"></script>
+
+<!-- ─── Feature Modules (order doesn't matter after app.js) ─── -->
+<script src="dashboard.js"></script>
+<script src="investments.js"></script>
+<script src="Insurance.js"></script>
+<script src="liabilities.js"></script>
+<script src="accounts.js"></script>
+<script src="expenses.js"></script>
+<script src="sip.js"></script>
+</body>
+</html>
