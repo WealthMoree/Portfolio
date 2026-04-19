@@ -1,12 +1,118 @@
 /* ─── INSURANCE MODULE ─────────────────────────────────────────── */
 
 const INS_TYPES = ['Term Life', 'Health', 'Car', 'Bike', 'Home', 'Travel', 'Endowment', 'ULIP', 'Other'];
-const COMPANY_LOGOS = {
-  'LIC': '🏛️', 'HDFC Life': '🔵', 'ICICI Prudential': '🟤', 'SBI Life': '🏦',
-  'Max Life': '⚡', 'Bajaj Allianz': '🟠', 'Tata AIA': '⭐', 'Religare': '🏥',
-  'Star Health': '⭐', 'Niva Bupa': '💙', 'New India': '🏢', 'United India': '🌐',
-};
 
+// ─── LOGO FETCHING ─────────────────────────────────────────────
+const logoCache = {};
+
+function getCompanyLogoUrl(companyName) {
+  if (!companyName) return null;
+  const cached = logoCache[companyName.toLowerCase()];
+  if (cached !== undefined) return cached;
+  return null; // Will be fetched async
+}
+
+async function fetchCompanyLogo(companyName) {
+  if (!companyName) return null;
+  const key = companyName.toLowerCase();
+  if (logoCache[key] !== undefined) return logoCache[key];
+
+  // Map common Indian insurance/bank names to known domains
+  const knownDomains = {
+    'lic': 'licindia.in', 'life insurance corporation': 'licindia.in',
+    'hdfc life': 'hdfclife.com', 'hdfc': 'hdfclife.com',
+    'icici prudential': 'iciciprulife.com', 'icici': 'icicibank.com',
+    'sbi life': 'sbilife.co.in', 'sbi': 'sbi.co.in',
+    'max life': 'maxlifeinsurance.com', 'max': 'maxlifeinsurance.com',
+    'bajaj allianz': 'bajajallianz.com', 'bajaj': 'bajajallianz.com',
+    'tata aia': 'tataaia.com', 'tata': 'tataaia.com',
+    'star health': 'starhealth.in',
+    'niva bupa': 'nivabupa.com', 'bupa': 'nivabupa.com',
+    'new india': 'newindia.co.in',
+    'united india': 'uiic.co.in',
+    'religare': 'careinsurance.com', 'care health': 'careinsurance.com',
+    'aditya birla': 'adityabirlacapital.com',
+    'kotak': 'kotaklife.com', 'kotak mahindra': 'kotaklife.com',
+    'future generali': 'futuregenerali.in',
+    'oriental': 'orientalinsurance.org.in',
+    'national insurance': 'nationalinsurance.nic.co.in',
+    'cholamandalam': 'chola.in',
+    'digit': 'godigit.com', 'go digit': 'godigit.com',
+    'acko': 'acko.com',
+    'iffco tokio': 'iffcotokio.co.in',
+    'royal sundaram': 'royalsundaram.in',
+    // Banks
+    'axis bank': 'axisbank.com', 'axis': 'axisbank.com',
+    'pnb': 'pnbindia.in', 'punjab national': 'pnbindia.in',
+    'bank of baroda': 'bankofbaroda.in',
+    'canara bank': 'canarabank.in',
+    'union bank': 'unionbankofindia.co.in',
+    'indian bank': 'indianbank.in',
+    'central bank': 'centralbankofindia.co.in',
+    'idbi': 'idbibank.com',
+    'yes bank': 'yesbank.in', 'yes': 'yesbank.in',
+    'indusind': 'indusind.com', 'indusind bank': 'indusind.com',
+    'rbl bank': 'rblbank.com', 'rbl': 'rblbank.com',
+    'federal bank': 'federalbank.co.in',
+    'karnataka bank': 'karnatakabank.com',
+    'south indian bank': 'southindianbank.com',
+    'bandhan bank': 'bandhanbank.com',
+    'idfc first': 'idfcfirstbank.com', 'idfc': 'idfcfirstbank.com',
+    'paytm': 'paytm.com',
+    'phonepe': 'phonepe.com',
+  };
+
+  let domain = null;
+  for (const [name, d] of Object.entries(knownDomains)) {
+    if (key.includes(name) || name.includes(key)) { domain = d; break; }
+  }
+
+  // Try Clearbit Logo API first, then Google Favicon as fallback
+  const tryUrls = domain
+    ? [`https://logo.clearbit.com/${domain}`, `https://www.google.com/s2/favicons?domain=${domain}&sz=64`]
+    : [`https://logo.clearbit.com/${companyName.toLowerCase().replace(/\s+/g,'')+'.com'}`,
+       `https://logo.clearbit.com/${companyName.toLowerCase().replace(/\s+/g,'').replace(/bank|insurance|life|health/g,'')}.com`,
+       `https://www.google.com/s2/favicons?domain=${encodeURIComponent(companyName.toLowerCase().replace(/\s+/g,''))}.com&sz=64`];
+
+  for (const url of tryUrls) {
+    try {
+      const resp = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
+      if (resp.ok) { logoCache[key] = url; return url; }
+    } catch {}
+  }
+
+  logoCache[key] = null; // Cache failure too
+  return null;
+}
+
+function companyLogoHtml(company, size = 36) {
+  const initials = (company || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  const colors = ['#22c55e','#3b82f6','#f59e0b','#8b5cf6','#ef4444','#06b6d4','#ec4899'];
+  const color = colors[initials.charCodeAt(0) % colors.length];
+  const cached = logoCache[(company||'').toLowerCase()];
+
+  if (cached) {
+    return `<img src="${cached}" alt="${escHtml(company)}" style="width:${size}px;height:${size}px;object-fit:contain;border-radius:8px;background:#fff;padding:2px"
+      onerror="this.parentNode.innerHTML=\`<div style='width:${size}px;height:${size}px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:${Math.floor(size*0.35)}px'>${initials}</div>\`">`;
+  }
+
+  // Return initials placeholder, then async-swap when logo loads
+  const domId = 'logo-' + Math.random().toString(36).slice(2);
+  const placeholder = `<div id="${domId}" style="width:${size}px;height:${size}px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:${Math.floor(size*0.35)}px;flex-shrink:0">${initials}</div>`;
+
+  if (company) {
+    fetchCompanyLogo(company).then(url => {
+      const el = document.getElementById(domId);
+      if (el && url) {
+        el.outerHTML = `<img src="${url}" alt="${escHtml(company)}" style="width:${size}px;height:${size}px;object-fit:contain;border-radius:8px;background:#fff;padding:2px;flex-shrink:0"
+          onerror="this.style.display='none'">`;
+      }
+    });
+  }
+  return placeholder;
+}
+
+// ─── RENDER ─────────────────────────────────────────────────────
 function renderInsurance(container) {
   const totalPremium = DB.insurance.reduce((s, ins) => s + (parseFloat(ins.premium) || 0), 0);
   const totalCoverage = DB.insurance.reduce((s, ins) => s + (parseFloat(ins.coverage) || 0), 0);
@@ -56,7 +162,10 @@ function renderInsurance(container) {
       ${upcoming.map(ins => {
         const days = daysBetween(today(), ins.renewalDate);
         return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(0,0,0,0.06)">
-          <div><strong>${escHtml(ins.name)}</strong> <span class="text-muted" style="font-size:0.78rem">— ${escHtml(ins.company)}</span></div>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${companyLogoHtml(ins.company, 28)}
+            <div><strong>${escHtml(ins.name)}</strong> <span class="text-muted" style="font-size:0.78rem">— ${escHtml(ins.company)}</span></div>
+          </div>
           <span class="badge badge-yellow">${days === 0 ? 'Today!' : `${days} days`}</span>
         </div>`;
       }).join('')}
@@ -79,9 +188,7 @@ function renderInsurance(container) {
     </div>
   `;
 
-  // Charts
-  const coverageByType = {};
-  const premiumByType = {};
+  const coverageByType = {}, premiumByType = {};
   DB.insurance.forEach(ins => {
     coverageByType[ins.type] = (coverageByType[ins.type] || 0) + (parseFloat(ins.coverage) || 0);
     premiumByType[ins.type] = (premiumByType[ins.type] || 0) + (parseFloat(ins.premium) || 0);
@@ -101,25 +208,29 @@ function renderInsuranceCards() {
   `;
   return DB.insurance.map(ins => {
     const days = ins.renewalDate ? daysBetween(today(), ins.renewalDate) : null;
-    const logo = COMPANY_LOGOS[ins.company] || '🏢';
     const isExpiring = days !== null && days >= 0 && days <= 30;
     const isExpired = days !== null && days < 0;
 
     return `
       <div class="inv-card" onclick="openInsuranceLedger('${ins.id}')">
         <div class="inv-card-header">
-          <span style="font-size:1.5rem">${logo}</span>
-          <div style="display:flex;gap:6px" onclick="event.stopPropagation()">
-            ${isExpiring ? '<span class="badge badge-yellow">⚠ Renew Soon</span>' : ''}
+          <div style="display:flex;align-items:center;gap:10px">
+            ${companyLogoHtml(ins.company, 36)}
+            <div>
+              <div class="inv-name" style="margin-bottom:2px">${escHtml(ins.name)}</div>
+              <div class="text-muted" style="font-size:0.78rem">${escHtml(ins.company)}</div>
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:flex-start" onclick="event.stopPropagation()">
+            ${isExpiring ? '<span class="badge badge-yellow">⚠ Renew</span>' : ''}
             ${isExpired ? '<span class="badge badge-red">Expired</span>' : ''}
             <button class="btn-icon btn-sm" onclick="editInsurance('${ins.id}')">✏️</button>
             <button class="btn-icon btn-sm" onclick="deleteInsurance('${ins.id}')">🗑️</button>
           </div>
         </div>
-        <div class="inv-name">${escHtml(ins.name)}</div>
-        <div class="text-muted" style="font-size:0.8rem;margin-bottom:8px">${escHtml(ins.company)}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px">
           <span class="badge badge-blue">${escHtml(ins.type)}</span>
+          ${ins.frequency ? `<span class="badge" style="background:var(--bg3);color:var(--text2)">${escHtml(ins.frequency)}</span>` : ''}
         </div>
         <div class="inv-meta">
           <div class="inv-meta-item">
@@ -132,7 +243,7 @@ function renderInsuranceCards() {
           </div>
           <div class="inv-meta-item">
             <span class="label">Renewal</span>
-            <span class="value ${isExpiring ? 'text-warning' : ''}">${formatDate(ins.renewalDate)}</span>
+            <span class="value ${isExpiring ? 'text-warning' : isExpired ? 'text-danger' : ''}">${formatDate(ins.renewalDate)}</span>
           </div>
           ${ins.policyNumber ? `<div class="inv-meta-item">
             <span class="label">Policy No.</span>
@@ -161,11 +272,12 @@ function openAddInsuranceModal(editId) {
         </select>
       </div>
       <div class="form-row">
-        <label class="form-label">Company *</label>
-        <input class="form-input" id="ins-company" list="company-list" value="${v('company')}">
-        <datalist id="company-list">
-          ${Object.keys(COMPANY_LOGOS).map(c => `<option value="${c}">`).join('')}
-        </datalist>
+        <label class="form-label">Insurance Company *</label>
+        <input class="form-input" id="ins-company" placeholder="e.g. LIC, HDFC Life, Star Health" value="${v('company')}"
+          oninput="previewInsLogo(this.value)">
+        <div id="ins-logo-preview" style="margin-top:8px;display:flex;align-items:center;gap:8px;min-height:36px">
+          ${ins?.company ? companyLogoHtml(ins.company, 36) + `<span style="font-size:0.82rem;color:var(--text2)">${escHtml(ins.company)}</span>` : ''}
+        </div>
       </div>
       <div class="form-row">
         <label class="form-label">Policy Number</label>
@@ -219,6 +331,27 @@ function openAddInsuranceModal(editId) {
     </div>
   `;
   openModal(ins ? 'Edit Policy' : 'Add Insurance / Policy', html);
+}
+
+let logoDebounceTimer = null;
+function previewInsLogo(name) {
+  clearTimeout(logoDebounceTimer);
+  logoDebounceTimer = setTimeout(async () => {
+    const preview = document.getElementById('ins-logo-preview');
+    if (!preview || !name.trim()) { if (preview) preview.innerHTML = ''; return; }
+    preview.innerHTML = `<span style="font-size:0.78rem;color:var(--text3)">Looking up logo…</span>`;
+    const url = await fetchCompanyLogo(name);
+    if (!preview) return;
+    if (url) {
+      preview.innerHTML = `<img src="${url}" style="width:36px;height:36px;object-fit:contain;border-radius:8px;background:#fff;padding:2px" onerror="this.remove()">
+        <span style="font-size:0.82rem;color:var(--text2)">${escHtml(name)}</span>`;
+    } else {
+      const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      const color = ['#22c55e','#3b82f6','#f59e0b','#8b5cf6','#ef4444'][initials.charCodeAt(0)%5];
+      preview.innerHTML = `<div style="width:36px;height:36px;border-radius:8px;background:${color};display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:13px">${initials}</div>
+        <span style="font-size:0.82rem;color:var(--text2)">${escHtml(name)} <span style="color:var(--text3)">(logo not found, initials shown)</span></span>`;
+    }
+  }, 600);
 }
 
 function saveInsurance(editId) {
@@ -275,6 +408,13 @@ function openInsuranceLedger(id) {
   const totalPaid = ledger.filter(e => !e.credit).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
   const html = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      ${companyLogoHtml(ins.company, 48)}
+      <div>
+        <div style="font-size:1rem;font-weight:700">${escHtml(ins.name)}</div>
+        <div class="text-muted" style="font-size:0.82rem">${escHtml(ins.company)}</div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px">
       <div class="stat-card" style="padding:14px"><div class="stat-label">Annual Premium</div><div class="stat-value" style="font-size:1.1rem">${formatCurrency(ins.premium)}</div></div>
       <div class="stat-card" style="padding:14px"><div class="stat-label">Coverage</div><div class="stat-value" style="font-size:1.1rem">${formatCurrency(ins.coverage, true)}</div></div>
@@ -291,9 +431,14 @@ function openInsuranceLedger(id) {
     ${ledger.length ? `
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Date</th><th>Description</th><th>Amount</th></tr></thead>
+          <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th></th></tr></thead>
           <tbody>${ledger.map(e => `
-            <tr><td>${formatDate(e.date)}</td><td>${escHtml(e.description)}</td><td class="mono text-danger">−${formatCurrency(e.amount)}</td></tr>
+            <tr>
+              <td>${formatDate(e.date)}</td>
+              <td>${escHtml(e.description)}</td>
+              <td class="mono text-danger">−${formatCurrency(e.amount)}</td>
+              <td><button class="btn-ghost btn-sm" onclick="editLedgerEntry('${id}','${e.id}','insurance')">✏️</button></td>
+            </tr>
           `).join('')}</tbody>
         </table>
       </div>` : '<div class="text-muted" style="text-align:center;padding:20px">No entries yet</div>'}
