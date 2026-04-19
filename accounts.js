@@ -51,6 +51,14 @@ function renderAccounts(container) {
   `;
 }
 
+// ─── BANK LOGO (reuses Insurance module's fetchCompanyLogo) ───────
+function bankLogoHtml(bankName, size = 32) {
+  // companyLogoHtml is defined in Insurance.js and shared globally
+  if (typeof companyLogoHtml === 'function') return companyLogoHtml(bankName, size);
+  const initials = (bankName || '?').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+  return `<div style="width:${size}px;height:${size}px;border-radius:8px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:${Math.floor(size*0.35)}px">${initials}</div>`;
+}
+
 function renderBankCards() {
   const banks = DB.accounts.filter(a => a.type !== 'Credit Card');
   if (!banks.length) return `
@@ -67,12 +75,16 @@ function renderBankCards() {
         <button class="acc-action-btn" onclick="editAccount('${acc.id}')">✏️</button>
         <button class="acc-action-btn" onclick="deleteAccount('${acc.id}')">🗑️</button>
       </div>
-      <div class="account-type-badge">${escHtml(acc.type)}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        ${bankLogoHtml(acc.bank, 36)}
+        <div class="account-type-badge" style="margin:0">${escHtml(acc.type)}</div>
+      </div>
       <div class="account-balance">${formatCurrency(acc.balance, true)}</div>
       <div class="account-name-row">
         <div class="account-bank">${escHtml(acc.bank)}</div>
         <div class="account-name">${escHtml(acc.name)}</div>
       </div>
+      ${acc.accountNumber ? `<div class="text-muted" style="font-size:0.72rem;margin-top:6px">••••${escHtml(acc.accountNumber)}</div>` : ''}
     </div>
   `).join('');
 }
@@ -98,11 +110,14 @@ function renderCreditCards() {
           <button class="acc-action-btn" onclick="editAccount('${acc.id}')">✏️</button>
           <button class="acc-action-btn" onclick="deleteAccount('${acc.id}')">🗑️</button>
         </div>
-        <div class="account-type-badge">CREDIT CARD</div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          ${bankLogoHtml(acc.bank, 32)}
+          <div class="account-type-badge" style="margin:0;opacity:0.85">CREDIT CARD</div>
+        </div>
         <div class="account-balance">${formatCurrency(available, true)}</div>
         <div style="margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;font-size:0.72rem;opacity:0.7;margin-bottom:4px">
-            <span>₹${formatCurrency(used, true)} used</span>
+            <span>${formatCurrency(used, true)} used</span>
             <span>Limit: ${formatCurrency(limit, true)}</span>
           </div>
           <div class="progress-bar" style="background:rgba(255,255,255,0.2)">
@@ -113,6 +128,7 @@ function renderCreditCards() {
           <div class="account-bank">${escHtml(acc.bank)}</div>
           <div class="account-name">${escHtml(acc.name)}</div>
         </div>
+        ${acc.dueDate ? `<div class="text-muted" style="font-size:0.72rem;margin-top:6px;opacity:0.8">Due: ${formatDate(acc.dueDate)}</div>` : ''}
       </div>
     `;
   }).join('');
@@ -137,7 +153,10 @@ function openAddAccountModal(preset, editId) {
       </div>
       <div class="form-row">
         <label class="form-label">Bank / Institution *</label>
-        <input class="form-input" id="acc-bank" placeholder="HDFC Bank" value="${v('bank')}">
+        <input class="form-input" id="acc-bank" placeholder="HDFC Bank" value="${v('bank')}" oninput="previewBankLogo(this.value)">
+        <div id="bank-logo-preview" style="margin-top:8px;display:flex;align-items:center;gap:8px;min-height:32px">
+          ${acc?.bank ? bankLogoHtml(acc.bank, 32) + `<span style="font-size:0.82rem;color:var(--text2)">${escHtml(acc.bank)}</span>` : ''}
+        </div>
       </div>
       <div class="form-row">
         <label class="form-label">Balance (₹)</label>
@@ -179,10 +198,28 @@ function openAddAccountModal(preset, editId) {
   `;
   openModal(acc ? 'Edit Account' : 'Add Account / Card', html, () => {
     toggleCreditFields();
-    if (acc?.type === 'Credit Card') {
-      document.getElementById('credit-fields').style.display = 'contents';
-    }
+    if (acc?.type === 'Credit Card') document.getElementById('credit-fields').style.display = 'contents';
   });
+}
+
+let bankLogoDebounce = null;
+function previewBankLogo(name) {
+  clearTimeout(bankLogoDebounce);
+  bankLogoDebounce = setTimeout(async () => {
+    const preview = document.getElementById('bank-logo-preview');
+    if (!preview || !name.trim()) { if (preview) preview.innerHTML = ''; return; }
+    preview.innerHTML = `<span style="font-size:0.78rem;color:var(--text3)">Looking up logo…</span>`;
+    const url = typeof fetchCompanyLogo === 'function' ? await fetchCompanyLogo(name) : null;
+    if (!preview) return;
+    if (url) {
+      preview.innerHTML = `<img src="${url}" style="width:32px;height:32px;object-fit:contain;border-radius:6px;background:#fff;padding:2px" onerror="this.remove()">
+        <span style="font-size:0.82rem;color:var(--text2)">${escHtml(name)}</span>`;
+    } else {
+      const initials = name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      preview.innerHTML = `<div style="width:32px;height:32px;border-radius:6px;background:#3b82f6;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px">${initials}</div>
+        <span style="font-size:0.82rem;color:var(--text2)">${escHtml(name)}</span>`;
+    }
+  }, 600);
 }
 
 function toggleCreditFields() {
@@ -235,9 +272,7 @@ function deleteAccount(id) {
   if (!acc) return;
   const linked = DB.liabilities.filter(l => l.accountId === id).length +
                  DB.investments.filter(i => i.accountId === id).length;
-  if (linked > 0) {
-    return showToast(`Cannot delete: ${linked} items are linked to this account`, 'error');
-  }
+  if (linked > 0) return showToast(`Cannot delete: ${linked} items are linked to this account`, 'error');
   if (!confirm('Delete this account? All its ledger entries will also be removed.')) return;
   DB.accounts = DB.accounts.filter(a => a.id !== id);
   delete DB.ledgers[id];
@@ -254,6 +289,13 @@ function openAccountLedger(id) {
   const debits = ledger.filter(e => !e.credit).reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
 
   const html = `
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      ${bankLogoHtml(acc.bank, 44)}
+      <div>
+        <div style="font-size:1rem;font-weight:700">${escHtml(acc.name)}</div>
+        <div class="text-muted" style="font-size:0.82rem">${escHtml(acc.bank)} · ${escHtml(acc.type)}</div>
+      </div>
+    </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px">
       <div class="stat-card" style="padding:14px"><div class="stat-label">Balance</div><div class="stat-value" style="font-size:1.1rem">${formatCurrency(acc.balance || (acc.type==='Credit Card'?acc.creditLimit-acc.usedCredit:0))}</div></div>
       <div class="stat-card" style="padding:14px"><div class="stat-label">Total In</div><div class="stat-value text-accent" style="font-size:1.1rem">${formatCurrency(credits, true)}</div></div>
@@ -269,13 +311,14 @@ function openAccountLedger(id) {
     ${ledger.length ? `
       <div class="table-wrap">
         <table class="data-table">
-          <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th></tr></thead>
+          <thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Type</th><th></th></tr></thead>
           <tbody>${ledger.map(e => `
             <tr>
               <td>${formatDate(e.date)}</td>
               <td>${escHtml(e.description)}</td>
               <td class="mono ${e.credit?'text-accent':'text-danger'}">${e.credit?'+':'−'}${formatCurrency(e.amount)}</td>
               <td><span class="badge ${e.credit?'badge-green':'badge-red'}">${e.type||'Txn'}</span></td>
+              <td><button class="btn-ghost btn-sm" onclick="editLedgerEntry('${id}','${e.id}','account')">✏️</button></td>
             </tr>
           `).join('')}</tbody>
         </table>
@@ -328,7 +371,7 @@ function saveAccTransaction(accId, accName) {
   const acc = DB.accounts.find(a => a.id === accId);
   if (acc) {
     if (acc.type === 'Credit Card') {
-      acc.usedCredit = Math.max(0, (parseFloat(acc.usedCredit) || 0) + (credit ? -(amount) : amount));
+      acc.usedCredit = Math.max(0, (parseFloat(acc.usedCredit) || 0) + (credit ? -amount : amount));
       if (acc.usedCredit > acc.creditLimit) return showToast('⚠ Transaction would exceed credit limit!', 'error');
     } else {
       acc.balance = (parseFloat(acc.balance) || 0) + (credit ? amount : -amount);
@@ -341,3 +384,6 @@ function saveAccTransaction(accId, accName) {
   openAccountLedger(accId);
   showToast('Transaction added!', 'success');
 }
+
+// editLedgerEntry for account ledger (reuses liabilities version if available)
+// The function is defined in liabilities.js and is shared globally
