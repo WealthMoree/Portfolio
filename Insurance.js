@@ -3,85 +3,137 @@
 const INS_TYPES = ['Term Life', 'Health', 'Car', 'Bike', 'Home', 'Travel', 'Endowment', 'ULIP', 'Other'];
 
 // ─── LOGO FETCHING ─────────────────────────────────────────────
-const logoCache = {};
 
-function getCompanyLogoUrl(companyName) {
-  if (!companyName) return null;
-  const cached = logoCache[companyName.toLowerCase()];
-  if (cached !== undefined) return cached;
-  return null; // Will be fetched async
+// Probe a URL by loading it as an image (avoids CORS issues with fetch HEAD)
+function probeImageUrl(url) {
+  return new Promise(resolve => {
+    const img = new Image();
+    const timer = setTimeout(() => { img.src = ''; resolve(false); }, 4000);
+    img.onload  = () => { clearTimeout(timer); resolve(true); };
+    img.onerror = () => { clearTimeout(timer); resolve(false); };
+    img.src = url;
+  });
 }
+
+const logoCache = {};
 
 async function fetchCompanyLogo(companyName) {
   if (!companyName) return null;
-  const key = companyName.toLowerCase();
+  const key = companyName.trim().toLowerCase();
   if (logoCache[key] !== undefined) return logoCache[key];
 
-  // Map common Indian insurance/bank names to known domains
+  // Longer / more-specific entries must come FIRST so "hdfc bank" wins over bare "hdfc"
   const knownDomains = {
-    'lic': 'licindia.in', 'life insurance corporation': 'licindia.in',
-    'hdfc life': 'hdfclife.com', 'hdfc': 'hdfclife.com',
-    'icici prudential': 'iciciprulife.com', 'icici': 'icicibank.com',
-    'sbi life': 'sbilife.co.in', 'sbi': 'sbi.co.in',
-    'max life': 'maxlifeinsurance.com', 'max': 'maxlifeinsurance.com',
-    'bajaj allianz': 'bajajallianz.com', 'bajaj': 'bajajallianz.com',
-    'tata aia': 'tataaia.com', 'tata': 'tataaia.com',
-    'star health': 'starhealth.in',
-    'niva bupa': 'nivabupa.com', 'bupa': 'nivabupa.com',
-    'new india': 'newindia.co.in',
-    'united india': 'uiic.co.in',
-    'religare': 'careinsurance.com', 'care health': 'careinsurance.com',
-    'aditya birla': 'adityabirlacapital.com',
-    'kotak': 'kotaklife.com', 'kotak mahindra': 'kotaklife.com',
-    'future generali': 'futuregenerali.in',
-    'oriental': 'orientalinsurance.org.in',
-    'national insurance': 'nationalinsurance.nic.co.in',
-    'cholamandalam': 'chola.in',
-    'digit': 'godigit.com', 'go digit': 'godigit.com',
-    'acko': 'acko.com',
-    'iffco tokio': 'iffcotokio.co.in',
-    'royal sundaram': 'royalsundaram.in',
-    // Banks
-    'axis bank': 'axisbank.com', 'axis': 'axisbank.com',
-    'pnb': 'pnbindia.in', 'punjab national': 'pnbindia.in',
-    'bank of baroda': 'bankofbaroda.in',
-    'canara bank': 'canarabank.in',
-    'union bank': 'unionbankofindia.co.in',
-    'indian bank': 'indianbank.in',
-    'central bank': 'centralbankofindia.co.in',
-    'idbi': 'idbibank.com',
-    'yes bank': 'yesbank.in', 'yes': 'yesbank.in',
-    'indusind': 'indusind.com', 'indusind bank': 'indusind.com',
-    'rbl bank': 'rblbank.com', 'rbl': 'rblbank.com',
+    'hdfc bank': 'hdfcbank.com',
+    'hdfc life': 'hdfclife.com',
+    'hdfc ergo': 'hdfcergo.com',
+    'icici bank': 'icicibank.com',
+    'icici prudential': 'iciciprulife.com',
+    'icici lombard': 'icicilombard.com',
+    'sbi life': 'sbilife.co.in',
+    'sbi card': 'sbicard.com',
+    'state bank of india': 'sbi.co.in',
+    'state bank': 'sbi.co.in',
+    'kotak mahindra bank': 'kotak.com',
+    'kotak mahindra': 'kotak.com',
+    'kotak life': 'kotaklife.com',
+    'kotak bank': 'kotak.com',
+    'axis bank': 'axisbank.com',
+    'idfc first bank': 'idfcfirstbank.com',
+    'idfc first': 'idfcfirstbank.com',
+    'idfc bank': 'idfcfirstbank.com',
+    'indusind bank': 'indusind.com',
+    'yes bank': 'yesbank.in',
+    'rbl bank': 'rblbank.com',
     'federal bank': 'federalbank.co.in',
     'karnataka bank': 'karnatakabank.com',
     'south indian bank': 'southindianbank.com',
     'bandhan bank': 'bandhanbank.com',
-    'idfc first': 'idfcfirstbank.com', 'idfc': 'idfcfirstbank.com',
+    'bank of baroda': 'bankofbaroda.in',
+    'bank of india': 'bankofindia.co.in',
+    'bank of maharashtra': 'bankofmaharashtra.in',
+    'canara bank': 'canarabank.in',
+    'union bank of india': 'unionbankofindia.co.in',
+    'union bank': 'unionbankofindia.co.in',
+    'punjab national bank': 'pnbindia.in',
+    'central bank of india': 'centralbankofindia.co.in',
+    'indian bank': 'indianbank.in',
+    'indian overseas bank': 'iob.in',
+    'uco bank': 'ucobank.in',
+    'idbi bank': 'idbibank.com',
+    'life insurance corporation': 'licindia.in',
+    'lic of india': 'licindia.in',
+    'bajaj allianz life': 'bajajallianzlife.com',
+    'bajaj allianz': 'bajajallianz.com',
+    'tata aia life': 'tataaia.com',
+    'tata aia': 'tataaia.com',
+    'max life insurance': 'maxlifeinsurance.com',
+    'max life': 'maxlifeinsurance.com',
+    'aditya birla sun life': 'adityabirlacapital.com',
+    'aditya birla': 'adityabirlacapital.com',
+    'star health': 'starhealth.in',
+    'niva bupa': 'nivabupa.com',
+    'care health': 'careinsurance.com',
+    'religare health': 'careinsurance.com',
+    'new india assurance': 'newindia.co.in',
+    'united india': 'uiic.co.in',
+    'national insurance': 'nationalinsurance.nic.co.in',
+    'oriental insurance': 'orientalinsurance.org.in',
+    'cholamandalam': 'chola.in',
+    'future generali': 'futuregenerali.in',
+    'iffco tokio': 'iffcotokio.co.in',
+    'royal sundaram': 'royalsundaram.in',
+    'go digit': 'godigit.com',
+    'digit insurance': 'godigit.com',
+    'acko': 'acko.com',
+    'reliance general': 'reliancegeneral.co.in',
+    // Short aliases LAST — only match if nothing longer matched
+    'pnb': 'pnbindia.in',
+    'sbi': 'sbi.co.in',
+    'hdfc': 'hdfcbank.com',
+    'icici': 'icicibank.com',
+    'kotak': 'kotak.com',
+    'axis': 'axisbank.com',
+    'idfc': 'idfcfirstbank.com',
+    'indusind': 'indusind.com',
+    'idbi': 'idbibank.com',
+    'lic': 'licindia.in',
+    'bajaj': 'bajajallianz.com',
+    'digit': 'godigit.com',
     'paytm': 'paytm.com',
     'phonepe': 'phonepe.com',
   };
 
+  // Best-match: longest key that matches wins (most specific)
   let domain = null;
+  let bestLen = 0;
   for (const [name, d] of Object.entries(knownDomains)) {
-    if (key.includes(name) || name.includes(key)) { domain = d; break; }
+    if (key === name || key.includes(name) || name.includes(key)) {
+      if (name.length > bestLen) { domain = d; bestLen = name.length; }
+    }
   }
 
-  // Try Clearbit Logo API first, then Google Favicon as fallback
-  const tryUrls = domain
-    ? [`https://logo.clearbit.com/${domain}`, `https://www.google.com/s2/favicons?domain=${domain}&sz=64`]
-    : [`https://logo.clearbit.com/${companyName.toLowerCase().replace(/\s+/g,'')+'.com'}`,
-       `https://logo.clearbit.com/${companyName.toLowerCase().replace(/\s+/g,'').replace(/bank|insurance|life|health/g,'')}.com`,
-       `https://www.google.com/s2/favicons?domain=${encodeURIComponent(companyName.toLowerCase().replace(/\s+/g,''))}.com&sz=64`];
-
-  for (const url of tryUrls) {
-    try {
-      const resp = await fetch(url, { method: 'HEAD', signal: AbortSignal.timeout(3000) });
-      if (resp.ok) { logoCache[key] = url; return url; }
-    } catch {}
+  // Build candidate URLs — use img probe instead of fetch HEAD (avoids CORS)
+  const candidates = [];
+  if (domain) {
+    candidates.push(`https://logo.clearbit.com/${domain}`);
+    candidates.push(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`);
+  }
+  const slug = key
+    .replace(/\s+(bank|insurance|life|health|general|assurance|limited|ltd|pvt|co|of|india)\b/g, '')
+    .replace(/\s+/g, '');
+  if (slug) {
+    candidates.push(`https://logo.clearbit.com/${slug}.com`);
+    candidates.push(`https://logo.clearbit.com/${slug}.in`);
+    candidates.push(`https://www.google.com/s2/favicons?domain=${slug}.com&sz=128`);
   }
 
-  logoCache[key] = null; // Cache failure too
+  for (const url of candidates) {
+    const ok = await probeImageUrl(url);
+    if (ok) { logoCache[key] = url; return url; }
+  }
+
+  logoCache[key] = null;
   return null;
 }
 
